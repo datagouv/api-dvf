@@ -43,7 +43,7 @@ def create_moy_rolling_year(echelle_geo, code=None, case_dep_commune=False):
             nb_mutations_appartement_5ans,
             nb_mutations_local_5ans,
             CASE
-                WHEN (COALESCE(nb_mutations_appartement_5ans, 0) + COALESCE(nb_mutations_maison_5ans, 0) < {threshold} THEN NULL
+                WHEN COALESCE(nb_mutations_appartement_5ans, 0) + COALESCE(nb_mutations_maison_5ans, 0) < {threshold} THEN NULL
                 ELSE tot_appart_maison / (COALESCE(nb_mutations_appartement_5ans, 0) + COALESCE(nb_mutations_maison_5ans, 0))
             END AS moy_prix_m2_appart_maison_5ans,
             CASE
