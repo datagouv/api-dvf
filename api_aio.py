@@ -20,6 +20,8 @@ start_month = '01' if date.today().month <= 6 else '06'
 # start_month = '01'
 start_date = str(start_year) + "-" + start_month
 
+threshold = 3
+
 conn = psycopg2.connect(
     host=host,
     database=db,
@@ -40,10 +42,22 @@ def create_moy_rolling_year(echelle_geo, code=None, case_dep_commune=False):
             nb_mutations_maison_5ans,
             nb_mutations_appartement_5ans,
             nb_mutations_local_5ans,
-            tot_appart_maison / NULLIF((nb_mutations_appartement_5ans + nb_mutations_maison_5ans), 0) as moy_prix_m2_appart_maison_5ans,
-            tot_maison / NULLIF(nb_mutations_maison_5ans, 0) as moy_prix_m2_maison_5ans,
-            tot_appart / NULLIF(nb_mutations_appartement_5ans, 0) as moy_prix_m2_appart_5ans,
-            tot_local / NULLIF(nb_mutations_local_5ans, 0) as moy_prix_m2_local_5ans
+            CASE
+                WHEN nb_mutations_appartement_5ans + nb_mutations_maison_5ans < {threshold} THEN NULL
+                ELSE tot_appart_maison / nb_mutations_appartement_5ans + nb_mutations_maison_5ans
+            END AS moy_prix_m2_appart_maison_5ans,
+            CASE
+                WHEN nb_mutations_maison_5ans < {threshold} THEN NULL
+                ELSE tot_maison / nb_mutations_maison_5ans
+            END AS moy_prix_m2_maison_5ans,
+            CASE
+                WHEN nb_mutations_appartement_5ans < {threshold} THEN NULL
+                ELSE tot_appart / nb_mutations_appartement_5ans
+            END AS moy_prix_m2_appart_5ans,
+            CASE
+                WHEN nb_mutations_local_5ans < {threshold} THEN NULL
+                ELSE tot_local / nb_mutations_local_5ans
+            END AS moy_prix_m2_local_5ans
         FROM (
             SELECT
                 code_geo,
