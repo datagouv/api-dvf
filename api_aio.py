@@ -178,6 +178,18 @@ def get_commune(request):
     return process_geo("commune", code)
 
 
+@routes.get('/mutations/{com}/{section}')
+def get_mutations(request):
+    com = request.match_info["com"]
+    section = request.match_info["section"]
+    with conn as connexion:
+        with connexion.cursor() as cursor:
+            cursor.execute(f"""SELECT * FROM public.dvf WHERE code_commune = '{com}' and section_prefixe = '{section}'""")
+            columns = [desc[0] for desc in cursor.description]
+            data = cursor.fetchall()
+    return web.json_response(text=json.dumps({"data": [{k: v for k, v in zip(columns, d)} for d in data]}, default=str))
+
+
 @routes.get('/section/{code}')
 def get_section(request):
     code = request.match_info["code"]
