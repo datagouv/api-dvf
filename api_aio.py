@@ -118,7 +118,7 @@ def create_moy_rolling_year(echelle_geo, code=None, case_dep_commune=False):
 
 def process_geo(echelle_geo, code):
     with conn as connexion:
-        sql = f"SELECT * FROM stats_dvf WHERE echelle_geo='{echelle_geo}' AND code_geo = '{code}'"
+        sql = f"SELECT * FROM stats_dvf WHERE echelle_geo='{echelle_geo}' AND code_geo = '{code}' ORDER BY annee_mois ASC;"
         with connexion.cursor() as cursor:
             cursor.execute(sql)
             columns = [desc[0] for desc in cursor.description]
@@ -139,7 +139,7 @@ def hello_world(request):
 def get_nation(request):
     with conn as connexion:
         with connexion.cursor() as cursor:
-            cursor.execute("""SELECT * FROM stats_dvf WHERE echelle_geo='nation'""")
+            cursor.execute("""SELECT * FROM stats_dvf WHERE echelle_geo='nation' ORDER BY annee_mois ASC;""")
             columns = [desc[0] for desc in cursor.description]
             data = cursor.fetchall()
     return web.json_response(text=json.dumps({"data": [{k: v for k, v in zip(columns, d)} for d in data]}, default=str))
