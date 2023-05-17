@@ -1,9 +1,11 @@
 import os
+from dotenv import load_dotenv
+
 
 load_dotenv()
 
 ## postgres connection ; fill in your own credentials
-PG_ID = os.getenv("POSTGRES_ID")
+PG_USER = os.getenv("POSTGRES_USER")
 PG_PWD = os.getenv("POSTGRES_PASSWORD")
 PG_HOST = os.getenv("POSTGRES_HOST")
 PG_DB = os.getenv("POSTGRES_DB")
