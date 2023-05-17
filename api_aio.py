@@ -8,7 +8,7 @@ from ast import literal_eval
 from datetime import date
 
 
-id = config.PG_ID
+user = config.PG_USER
 pwd = config.PG_PWD
 host = config.PG_HOST
 db = config.PG_DB
@@ -25,7 +25,7 @@ threshold = 3
 conn = psycopg2.connect(
     host=host,
     database=db,
-    user=id,
+    user=user,
     password=pwd,
     port=port
 )
