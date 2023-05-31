@@ -32,7 +32,7 @@ conn = psycopg2.connect(
 
 
 def create_moy_rolling_year(echelle_geo, code=None, case_dep_commune=False):
-    with conn as connexion:
+    with conn as connection:
         sql = f"""SELECT
             tbl2.code_geo,
             code_parent,
@@ -109,7 +109,7 @@ def create_moy_rolling_year(echelle_geo, code=None, case_dep_commune=False):
         GROUP BY code_geo, code_parent, libelle_geo
         ) tbl2
         ON tbl1.code_geo = tbl2.code_geo;"""
-        with connexion.cursor() as cursor:
+        with connection.cursor() as cursor:
             cursor.execute(sql)
             columns = [desc[0] for desc in cursor.description]
             data = cursor.fetchall()
@@ -117,9 +117,9 @@ def create_moy_rolling_year(echelle_geo, code=None, case_dep_commune=False):
 
 
 def process_geo(echelle_geo, code):
-    with conn as connexion:
+    with conn as connection:
         sql = f"SELECT * FROM stats_dvf WHERE echelle_geo='{echelle_geo}' AND code_geo = '{code}' ORDER BY annee_mois ASC;"
-        with connexion.cursor() as cursor:
+        with connection.cursor() as cursor:
             cursor.execute(sql)
             columns = [desc[0] for desc in cursor.description]
             data = cursor.fetchall()
@@ -131,14 +131,19 @@ routes = web.RouteTableDef()
 
 
 @routes.get("/")
-def hello_world(request):
-    return "<p>Données DVF agrégées</p>"
+async def get_health(request):
+    with conn as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1;")
+            data = cursor.fetchall()
+    assert data[0][0] == 1
+    return web.HTTPOk()
 
 
 @routes.get('/nation/mois')
 def get_nation(request):
-    with conn as connexion:
-        with connexion.cursor() as cursor:
+    with conn as connection:
+        with connection.cursor() as cursor:
             cursor.execute("""SELECT * FROM stats_dvf WHERE echelle_geo='nation' ORDER BY annee_mois ASC;""")
             columns = [desc[0] for desc in cursor.description]
             data = cursor.fetchall()
@@ -182,8 +187,8 @@ def get_commune(request):
 def get_mutations(request):
     com = request.match_info["com"]
     section = request.match_info["section"]
-    with conn as connexion:
-        with connexion.cursor() as cursor:
+    with conn as connection:
+        with connection.cursor() as cursor:
             cursor.execute(f"""SELECT * FROM public.dvf WHERE code_commune = '{com}' and section_prefixe = '{section}'""")
             columns = [desc[0] for desc in cursor.description]
             data = cursor.fetchall()
@@ -224,9 +229,9 @@ def get_section_from_commune(request):
 def get_repartition_from_code_geo(request):
     code = request.match_info["code"]
     if code:
-        with conn as connexion:
+        with conn as connection:
             sql = f"SELECT * FROM distribution_prix WHERE code_geo='{code}'"
-            with connexion.cursor() as cursor:
+            with connection.cursor() as cursor:
                 cursor.execute(sql)
                 columns = [desc[0] for desc in cursor.description]
                 data = cursor.fetchall()
@@ -268,8 +273,8 @@ def get_echelle(request):
     queries = [echelle_query, code_query, date_query]
     queries = [q for q in queries if q != '']
 
-    with conn as connexion:
-        with connexion.cursor() as cursor:
+    with conn as connection:
+        with connection.cursor() as cursor:
             if len(queries) == 0:
                 cursor.execute("""SELECT * FROM stats_dvf""")
             else:
