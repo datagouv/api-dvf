@@ -13,6 +13,7 @@ pwd = config.PG_PWD
 host = config.PG_HOST
 db = config.PG_DB
 port = config.PG_PORT
+schema = config.PG_SCHEMA
 
 start_year = date.today().year - 1
 start_month = '01' if date.today().month <= 6 else '06'
@@ -27,7 +28,8 @@ conn = psycopg2.connect(
     database=db,
     user=user,
     password=pwd,
-    port=port
+    port=port,
+    options=f"-c search_path={schema}",
 )
 
 
