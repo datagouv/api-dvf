@@ -189,15 +189,9 @@ def get_commune(request):
 def get_mutations(request):
     com = request.match_info["com"]
     section = request.match_info["section"]
-<<<<<<< HEAD
     with conn as connection:
         with connection.cursor() as cursor:
             cursor.execute(f"""SELECT * FROM public.dvf WHERE code_commune = '{com}' and section_prefixe = '{section}'""")
-=======
-    with conn as connexion:
-        with connexion.cursor() as cursor:
-            cursor.execute(f"""SELECT * FROM dvf WHERE code_commune = '{com}' and section_prefixe = '{section}'""")
->>>>>>> 66bdd31 (feat: add DPE endpoint)
             columns = [desc[0] for desc in cursor.description]
             data = cursor.fetchall()
     return web.json_response(text=json.dumps({"data": [{k: v for k, v in zip(columns, d)} for d in data]}, default=str))
