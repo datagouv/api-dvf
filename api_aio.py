@@ -33,10 +33,10 @@ conn = psycopg2.connect(
 )
 
 
-def get_moy_5ans(echelle_geo, code=None):
+def get_moy_5ans(echelle_geo, code=None, case_dep_commune=False):
     where_complement = ""
     if code:
-        if echelle_geo != 'departement':
+        if not case_dep_commune:
             where_complement = " AND code_parent = '{code}'"
         else:
             where_complement = " AND LEFT(code_geo, 2) = '{code}'"
@@ -260,7 +260,7 @@ def get_section(request):
 @routes.get('/departement/{code}/communes')
 def get_communes_from_dep(request):
     code = request.match_info["code"]
-    return get_moy_5ans("commune", code)
+    return get_moy_5ans("commune", code, True)
 
 
 @routes.get('/epci/{code}/communes')
