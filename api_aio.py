@@ -37,9 +37,9 @@ def get_moy_5ans(echelle_geo, code=None, case_dep_commune=False):
     where_complement = ""
     if code:
         if not case_dep_commune:
-            where_complement = " AND code_parent = '{code}'"
+            where_complement = f" AND code_parent = '{code}'"
         else:
-            where_complement = " AND LEFT(code_geo, 2) = '{code}'"
+            where_complement = f" AND LEFT(code_geo, 2) = '{code}'"
     with conn as connection:
         sql = f"""
             SELECT
