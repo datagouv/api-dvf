@@ -33,6 +33,54 @@ conn = psycopg2.connect(
 )
 
 
+def get_moy_5ans(echelle_geo, code=None):
+    where_complement = ""
+    if code:
+        if echelle_geo != 'departement':
+            where_complement = " AND code_parent = '{code}'"
+        else:
+            where_complement = " AND LEFT(code_geo, 2) = '{code}'"
+    with conn as connection:
+        sql = f"""
+            SELECT
+                code_geo,
+                code_parent,
+                libelle_geo,
+                COALESCE(SUM(nb_ventes_maison) + SUM(nb_ventes_appartement), 0) AS nb_mutations_appart_maison_5ans,
+                COALESCE(SUM(nb_ventes_maison), 0) AS nb_mutations_maison_5ans,
+                COALESCE(SUM(nb_ventes_appartement), 0) AS nb_mutations_appart_5ans,
+                COALESCE(SUM(nb_ventes_local), 0) AS nb_mutations_local_5ans,
+                CASE
+                    WHEN (SUM(nb_ventes_maison) + SUM(nb_ventes_appartement)) < 3 THEN NULL
+                    ELSE (SUM(nb_ventes_maison * moy_prix_m2_maison) + SUM(nb_ventes_appartement * moy_prix_m2_appartement)) / (SUM(nb_ventes_maison) + SUM(nb_ventes_appartement))
+                END AS moy_prix_m2_appart_maison_5ans, 
+                CASE
+                    WHEN SUM(nb_ventes_maison) < 3 THEN NULL
+                    ELSE SUM(nb_ventes_maison * moy_prix_m2_maison) / SUM(nb_ventes_maison)
+                END AS moy_prix_m2_maison_5ans,     
+                CASE
+                    WHEN SUM(nb_ventes_appartement) < 3 THEN NULL
+                    ELSE SUM(nb_ventes_appartement * moy_prix_m2_appartement) / SUM(nb_ventes_appartement)
+                END AS moy_prix_m2_appart_5ans,
+                CASE
+                    WHEN SUM(nb_ventes_local) < 3 THEN NULL
+                    ELSE SUM(nb_ventes_local * moy_prix_m2_local) / SUM(nb_ventes_local)
+                END AS moy_prix_m2_local_5ans
+            FROM stats_dvf 
+            WHERE echelle_geo = '{echelle_geo}' {where_complement}
+            GROUP BY 
+                code_geo,
+                code_parent,
+                libelle_geo
+            ;
+        """
+        with connection.cursor() as cursor:
+            cursor.execute(sql)
+            columns = [desc[0] for desc in cursor.description]
+            data = cursor.fetchall()
+    return web.json_response(text=json.dumps({"data": [{k: v for k, v in zip(columns, d)} for d in data]}, default=str))
+
+
 def create_moy_rolling_year(echelle_geo, code=None, case_dep_commune=False):
     with conn as connection:
         sql = f"""SELECT
@@ -154,12 +202,12 @@ def get_nation(request):
 
 @routes.get('/nation')
 def get_all_nation(request):
-    return create_moy_rolling_year("nation")
+    return get_moy_5ans("nation")
 
 
 @routes.get('/departement')
 def get_all_departement(request):
-    return create_moy_rolling_year("departement")
+    return get_moy_5ans("departement")
 
 
 @routes.get('/departement/{code}')
@@ -170,7 +218,7 @@ def get_departement(request):
 
 @routes.get('/epci')
 def get_all_epci(request):
-    return create_moy_rolling_year("epci")
+    return get_moy_5ans("epci")
 
 
 @routes.get('/epci/{code}')
@@ -206,25 +254,25 @@ def get_section(request):
 @routes.get('/departement/{code}/epci')
 def get_epci_from_dep(request):
     code = request.match_info["code"]
-    return create_moy_rolling_year("epci", code)
+    return get_moy_5ans("epci", code)
 
 
 @routes.get('/departement/{code}/communes')
 def get_communes_from_dep(request):
     code = request.match_info["code"]
-    return create_moy_rolling_year("commune", code, case_dep_commune=True)
+    return get_moy_5ans("commune", code)
 
 
 @routes.get('/epci/{code}/communes')
 def get_commune_from_dep(request):
     code = request.match_info["code"]
-    return create_moy_rolling_year("commune", code)
+    return get_moy_5ans("commune", code)
 
 
 @routes.get('/commune/{code}/sections')
 def get_section_from_commune(request):
     code = request.match_info["code"]
-    return create_moy_rolling_year("section", code)
+    return get_moy_5ans("section", code)
 
 
 @routes.get('/distribution/{code}')
