@@ -275,6 +275,17 @@ def get_section_from_commune(request):
     return get_moy_5ans("section", code)
 
 
+@routes.get('/dpe/{parcelle_id}')
+def get_dpe_from_parcelle_id(request):
+    parcelle_id = request.match_info["parcelle_id"]
+    with conn as connexion:
+        with connexion.cursor() as cursor:
+            cursor.execute(f"""SELECT * FROM dpe WHERE parcelle_id = '{parcelle_id}'""")
+            columns = [desc[0] for desc in cursor.description]
+            data = cursor.fetchall()
+    return web.json_response(text=json.dumps({"data": [{k: v for k, v in zip(columns, d)} for d in data]}, default=str))
+
+
 @routes.get('/distribution/{code}')
 def get_repartition_from_code_geo(request):
     code = request.match_info["code"]
