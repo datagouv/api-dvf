@@ -48,11 +48,11 @@ def get_moy_5ans(echelle_geo, code=None, case_dep_commune=False):
                 libelle_geo,
                 COALESCE(SUM(nb_ventes_maison) + SUM(nb_ventes_appartement), 0) AS nb_mutations_appart_maison_5ans,
                 COALESCE(SUM(nb_ventes_maison), 0) AS nb_mutations_maison_5ans,
-                COALESCE(SUM(nb_ventes_appartement), 0) AS nb_mutations_appart_5ans,
+                COALESCE(SUM(nb_ventes_appartement), 0) AS nb_mutations_appartement_5ans,
                 COALESCE(SUM(nb_ventes_local), 0) AS nb_mutations_local_5ans,
                 CASE
                     WHEN (SUM(nb_ventes_maison) + SUM(nb_ventes_appartement)) < 3 THEN NULL
-                    ELSE (SUM(nb_ventes_maison * moy_prix_m2_maison) + SUM(nb_ventes_appartement * moy_prix_m2_appartement)) / (SUM(nb_ventes_maison) + SUM(nb_ventes_appartement))
+                    ELSE (COALESCE(SUM(nb_ventes_maison * moy_prix_m2_maison), 0) + COALESCE(SUM(nb_ventes_appartement * moy_prix_m2_appartement), 0)) / (SUM(nb_ventes_maison) + SUM(nb_ventes_appartement))
                 END AS moy_prix_m2_appart_maison_5ans, 
                 CASE
                     WHEN SUM(nb_ventes_maison) < 3 THEN NULL
