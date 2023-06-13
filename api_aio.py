@@ -251,10 +251,10 @@ def get_section(request):
     return process_geo("section", code)
 
 
-@routes.get('/departement/{code}/epci')
-def get_epci_from_dep(request):
-    code = request.match_info["code"]
-    return get_moy_5ans("epci", code)
+# @routes.get('/departement/{code}/epci')
+# def get_epci_from_dep(request):
+#     code = request.match_info["code"]
+#     return get_moy_5ans("epci", code)
 
 
 @routes.get('/departement/{code}/communes')
