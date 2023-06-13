@@ -247,7 +247,7 @@ def get_mutations(request):
     section = request.match_info["section"]
     with conn as connection:
         with connection.cursor() as cursor:
-            cursor.execute(f"""SELECT * FROM public.dvf WHERE code_commune = '{com}' and section_prefixe = '{section}'""")
+            cursor.execute(f"""SELECT * FROM dvf WHERE code_commune = '{com}' and section_prefixe = '{section}'""")
             columns = [desc[0] for desc in cursor.description]
             data = cursor.fetchall()
     return web.json_response(text=json.dumps({"data": [{k: v for k, v in zip(columns, d)} for d in data]}, default=str))
@@ -281,6 +281,28 @@ def get_commune_from_dep(request):
 def get_section_from_commune(request):
     code = request.match_info["code"]
     return get_moy_5ans("section", code)
+
+
+@routes.get('/dpe-copro/{parcelle_id}')
+def get_dpe_copro_from_parcelle_id(request):
+    parcelle_id = request.match_info["parcelle_id"]
+    with conn as connexion:
+        with connexion.cursor() as cursor:
+            cursor.execute(f"""SELECT * FROM dpe WHERE parcelle_id = '{parcelle_id}'""")
+            dpe_columns = [desc[0] for desc in cursor.description]
+            dpe_data = cursor.fetchall()
+            cursor.execute(f"""
+                SELECT * FROM copro
+                WHERE reference_cadastrale_1 = '{parcelle_id}'
+                OR reference_cadastrale_2 = '{parcelle_id}'
+                OR reference_cadastrale_3 = '{parcelle_id}'
+            """)
+            copro_columns = [desc[0] for desc in cursor.description]
+            copro_data = cursor.fetchall()
+    return web.json_response(text=json.dumps({"data": {
+        "dpe": [{k: v for k, v in zip(dpe_columns, d)} for d in dpe_data],
+        "copro": [{k: v for k, v in zip(copro_columns, d)} for d in copro_data],
+    }}, default=str))
 
 
 @routes.get('/dpe/{parcelle_id}')
