@@ -27,7 +27,7 @@ def get_moy_5ans(echelle_geo, code=None, case_dep_commune=False):
     }
 
     r = requests.post(f"{PGREST_ENDPOINT}/rpc/get_moy_5ans", json=payload)
-    data = r.json()["get_moy_5ans"]
+    data = r.json()[0]["get_moy_5ans"]
 
     return web.json_response(text=json.dumps({"data": data}, default=str))
 
