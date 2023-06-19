@@ -164,7 +164,9 @@ def get_repartition_from_code_geo(request):
                     isinstance(literal_eval(d[key]), list)
                 ):
                     d[key] = literal_eval(d[key])
-        res = {'code_geo': data['data'][0]['code_geo']}
+        res = {'code_geo': data[0]['code_geo']}
+        for d in data:
+            res[d['type_local']] = {'xaxis': d['xaxis'], 'yaxis': d['yaxis']}
         return web.json_response(text=json.dumps(res, default=str))
 
 
