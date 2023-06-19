@@ -22,7 +22,8 @@ threshold = 3
 def get_moy_5ans(echelle_geo, code=None, case_dep_commune=False):
     payload = {
         'echelle': echelle_geo,
-        'code': code
+        'code': code,
+        'is_dep_com': 'yes' if case_dep_commune else 'no'
     }
 
     r = requests.post(f"{PGREST_ENDPOINT}/rpc/get_moy_5ans", json=payload)
@@ -136,8 +137,8 @@ def get_dpe_copro_from_parcelle_id(request):
     dpe_data = r.json()
 
     r = requests.get(
-        f"{PGREST_ENDPOINT}/copro?or=(reference_cadastrale_1=eq.{parcelle_id},"
-        f"reference_cadastrale_2=eq.{parcelle_id},reference_cadastrale_3=eq.{parcelle_id})"
+        f"{PGREST_ENDPOINT}/copro?or=(reference_cadastrale_1.eq.{parcelle_id},"
+        f"reference_cadastrale_2.eq.{parcelle_id},reference_cadastrale_3.eq.{parcelle_id})"
     )
     copro_data = r.json()
 
@@ -160,7 +161,7 @@ def get_repartition_from_code_geo(request):
                 if (
                     d[key] is not None and
                     d[key].startswith('[') and
-                    isinstance(literal_eval(d[key], list))
+                    isinstance(literal_eval(d[key]), list)
                 ):
                     d[key] = literal_eval(d[key])
         res = {'code_geo': data['data'][0]['code_geo']}
