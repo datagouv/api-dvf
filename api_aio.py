@@ -19,16 +19,14 @@ start_date = str(start_year) + "-" + start_month
 threshold = 3
 
 
-def get_moy_5ans(echelle_geo, code=None, case_dep_commune=False):
-    payload = {
-        'echelle': echelle_geo,
-        'code': code,
-        'is_dep_com': 'yes' if case_dep_commune else 'no'
-    }
-
-    r = requests.post(f"{PGREST_ENDPOINT}/rpc/get_moy_5ans", json=payload)
-    data = r.json()[0]["moy5ans"]
-
+def get_med_5ans(echelle_geo, code=None, case_dep_commune=False):
+    url = f"{PGREST_ENDPOINT}/stats_whole_period?echelle_geo=eq.{echelle_geo}"
+    if code and not case_dep_commune:
+        url += f"&code_parent=eq.{code}"
+    if code and case_dep_commune:
+        url += f"&code_geo=like.{code}*"
+    r = requests.get(url)
+    data = r.json()
     return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -61,12 +59,12 @@ def get_nation(request):
 
 @routes.get('/nation')
 def get_all_nation(request):
-    return get_moy_5ans("nation")
+    return get_med_5ans("nation")
 
 
 @routes.get('/departement')
 def get_all_departement(request):
-    return get_moy_5ans("departement")
+    return get_med_5ans("departement")
 
 
 @routes.get('/departement/{code}')
@@ -77,7 +75,7 @@ def get_departement(request):
 
 @routes.get('/epci')
 def get_all_epci(request):
-    return get_moy_5ans("epci")
+    return get_med_5ans("epci")
 
 
 @routes.get('/epci/{code}')
@@ -112,19 +110,19 @@ def get_section(request):
 @routes.get('/departement/{code}/communes')
 def get_communes_from_dep(request):
     code = request.match_info["code"]
-    return get_moy_5ans("commune", code, True)
+    return get_med_5ans("commune", code, True)
 
 
 @routes.get('/epci/{code}/communes')
 def get_commune_from_dep(request):
     code = request.match_info["code"]
-    return get_moy_5ans("commune", code)
+    return get_med_5ans("commune", code)
 
 
 @routes.get('/commune/{code}/sections')
 def get_section_from_commune(request):
     code = request.match_info["code"]
-    return get_moy_5ans("section", code)
+    return get_med_5ans("section", code)
 
 
 @routes.get('/dpe-copro/{parcelle_id}')
