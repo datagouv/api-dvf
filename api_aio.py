@@ -150,7 +150,7 @@ def get_mutations_dep(request):
     if "com" in params:
         query = f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{params['com']}&limit=20&offset={offset}"
     if "section" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?section_prefixe=eq.{params['section']}&limit=20&offset={offset}"
+        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=like.{params['section']}*&limit=20&offset={offset}"
     if "parcelle" in params:
         query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}&limit=20&offset={offset}"
     if query:
