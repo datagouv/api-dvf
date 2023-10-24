@@ -61,7 +61,7 @@ def get_med_5ans(echelle_geo, code=None, case_dep_commune=False):
         url += f"&code_geo=like.{code}*"
     r = requests.get(url)
     data = r.json()
-    data["data"] = lighten_response(data["data"])
+    data = lighten_response(data)
     return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -71,7 +71,7 @@ def process_geo(echelle_geo, code):
         f"&code_geo=eq.{code}&order=annee_mois"
     )
     data = r.json()
-    data["data"] = lighten_response(data["data"])
+    data = lighten_response(data)
     return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -82,6 +82,7 @@ routes = web.RouteTableDef()
 async def get_health(request):
     return web.HTTPOk()
 
+
 @routes.get('/nation/mois')
 def get_nation(request):
     r = requests.get(
@@ -89,7 +90,7 @@ def get_nation(request):
         f"&order=annee_mois"
     )
     data = r.json()
-    data["data"] = lighten_response(data["data"])
+    data = lighten_response(data)
     return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -142,15 +143,15 @@ def get_mutations_dep(request):
     params = request.rel_url.query
     offset = 0
     query = None
-    if params["page"]:
+    if "page" in params:
         offset = (int(params["page"]) - 1) * 20
-    if params["dep"]:
+    if "dep" in params:
         query = f"{PGREST_ENDPOINT}/dvf?code_departement=eq.{params['dep']}&offset={offset}limit=20"
-    if params["com"]:
+    if "com" in params:
         query = f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{params['com']}&offset={offset}limit=20"
-    if params["section"]:
+    if "section" in params:
         query = f"{PGREST_ENDPOINT}/dvf?section_prefixe=eq.{params['section']}&offset={offset}limit=20"
-    if params["parcelle"]:
+    if "parcelle" in params:
         query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}&offset={offset}limit=20"
     if query:
         r = requests.get(query)
