@@ -30,7 +30,7 @@ def lighten_response(data):
         "nb_ventes_whole_maison": "m",
         "med_prix_m2_whole_maison": "m_m",
         "nb_ventes_whole_apt_maison": "am",
-        "med_prix_m2_whole_apt_maison": "am",
+        "med_prix_m2_whole_apt_maison": "m_am",
         "nb_ventes_whole_local": "l",
         "med_prix_m2_whole_local": "m_l",
         "nb_ventes_maison": "m",
