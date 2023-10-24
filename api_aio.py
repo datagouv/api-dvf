@@ -146,13 +146,13 @@ def get_mutations_dep(request):
     if "page" in params:
         offset = (int(params["page"]) - 1) * 20
     if "dep" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?code_departement=eq.{params['dep']}&offset={offset}limit=20"
+        query = f"{PGREST_ENDPOINT}/dvf?code_departement=eq.{params['dep']}&limit=20&offset={offset}"
     if "com" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{params['com']}&offset={offset}limit=20"
+        query = f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{params['com']}&limit=20&offset={offset}"
     if "section" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?section_prefixe=eq.{params['section']}&offset={offset}limit=20"
+        query = f"{PGREST_ENDPOINT}/dvf?section_prefixe=eq.{params['section']}&limit=20&offset={offset}"
     if "parcelle" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}&offset={offset}limit=20"
+        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}&limit=20&offset={offset}"
     if query:
         r = requests.get(query)
         data = r.json()
