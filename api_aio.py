@@ -19,6 +19,40 @@ start_date = str(start_year) + "-" + start_month
 threshold = 3
 
 
+def lighten_response(data):
+    mapping_properties = {
+        "code_geo": "c",
+        "libelle_geo": "n",
+        "code_parent": "p",
+        "echelle_geo": "l",
+        "nb_ventes_whole_appartement": "a",
+        "med_prix_m2_whole_appartement": "m_a",
+        "nb_ventes_whole_maison": "m",
+        "med_prix_m2_whole_maison": "m_m",
+        "nb_ventes_whole_apt_maison": "am",
+        "med_prix_m2_whole_apt_maison": "am",
+        "nb_ventes_whole_local": "l",
+        "med_prix_m2_whole_local": "m_l",
+        "nb_ventes_maison": "m",
+        "med_prix_m2_maison": "m_m",
+        "nb_ventes_appartement": "a",
+        "med_prix_m2_appartement": "m_a",
+        "nb_ventes_local": "l",
+        "med_prix_m2_local": "m_l",
+        "nb_ventes_apt_maison": "am",
+        "med_prix_m2_apt_maison": "m_am",
+        "annee_mois": "d",
+    }
+    arr = []
+    for item in data:
+        newItem = {}
+        for prop in item:
+            if("moy_" not in prop):
+                newItem[mapping_properties[prop]] = item[prop]
+        arr.append(newItem)
+    return arr
+
+
 def get_med_5ans(echelle_geo, code=None, case_dep_commune=False):
     url = f"{PGREST_ENDPOINT}/stats_whole_period?echelle_geo=eq.{echelle_geo}"
     if code and not case_dep_commune:
@@ -27,6 +61,7 @@ def get_med_5ans(echelle_geo, code=None, case_dep_commune=False):
         url += f"&code_geo=like.{code}*"
     r = requests.get(url)
     data = r.json()
+    data["data"] = lighten_response(data["data"])
     return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -36,6 +71,7 @@ def process_geo(echelle_geo, code):
         f"&code_geo=eq.{code}&order=annee_mois"
     )
     data = r.json()
+    data["data"] = lighten_response(data["data"])
     return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -46,7 +82,6 @@ routes = web.RouteTableDef()
 async def get_health(request):
     return web.HTTPOk()
 
-
 @routes.get('/nation/mois')
 def get_nation(request):
     r = requests.get(
@@ -54,6 +89,7 @@ def get_nation(request):
         f"&order=annee_mois"
     )
     data = r.json()
+    data["data"] = lighten_response(data["data"])
     return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -99,6 +135,27 @@ def get_mutations(request):
     )
     data = r.json()
     return web.json_response(text=json.dumps({"data": data}, default=str))
+
+
+@routes.get('/dvf')
+def get_mutations_dep(request):
+    params = request.rel_url.query
+    offset = 0
+    query = None
+    if params["page"]:
+        offset = (int(params["page"]) - 1) * 20
+    if params["dep"]:
+        query = f"{PGREST_ENDPOINT}/dvf?code_departement=eq.{params['dep']}&offset={offset}limit=20"
+    if params["com"]:
+        query = f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{params['com']}&offset={offset}limit=20"
+    if params["section"]:
+        query = f"{PGREST_ENDPOINT}/dvf?section_prefixe=eq.{params['section']}&offset={offset}limit=20"
+    if params["parcelle"]:
+        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}&offset={offset}limit=20"
+    if query:
+        r = requests.get(query)
+        data = r.json()
+        return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
 @routes.get('/section/{code}')
