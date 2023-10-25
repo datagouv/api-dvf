@@ -5,7 +5,6 @@ import aiohttp_cors
 from ast import literal_eval
 from datetime import date
 import os
-import requests
 
 PGREST_ENDPOINT = f"http://{os.getenv('PGREST_ENDPOINT')}"
 
@@ -17,6 +16,7 @@ start_month = '01' if date.today().month <= 6 else '06'
 start_date = str(start_year) + "-" + start_month
 
 threshold = 3
+
 
 def lighten_response(data):
     mapping_properties = {
@@ -52,109 +52,26 @@ def lighten_response(data):
     return arr
 
 
-async def get_med_5ans(echelle_geo, code=None, case_dep_commune=False):
+async def get_med_5ans(session, echelle_geo, code=None, case_dep_commune=False):
     url = f"{PGREST_ENDPOINT}/stats_whole_period?echelle_geo=eq.{echelle_geo}"
     if code and not case_dep_commune:
         url += f"&code_parent=eq.{code}"
     if code and case_dep_commune:
         url += f"&code_geo=like.{code}*"
-    r = await requests.get(url)
-    data = r.json()
-    data = lighten_response(data)
-    return web.json_response(text=json.dumps({"data": data}, default=str))
+
+    async with session.get(url) as res:
+        data = res.json()
+        data = lighten_response(data)
+        return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
-async def process_geo(echelle_geo, code):
-    r = await requests.get(
+async def process_geo(session, echelle_geo, code):
+    async with session.get(
         f"{PGREST_ENDPOINT}/stats_dvf?echelle_geo=eq.{echelle_geo}"
         f"&code_geo=eq.{code}&order=annee_mois"
-    )
-    data = r.json()
-    data = lighten_response(data)
-    return web.json_response(text=json.dumps({"data": data}, default=str))
-
-
-routes = web.RouteTableDef()
-
-
-@routes.get("/")
-async def get_health(request):
-    return web.HTTPOk()
-
-
-@routes.get('/nation/mois')
-async def get_nation(request):
-    r = await requests.get(
-        f"{PGREST_ENDPOINT}/stats_dvf?echelle_geo=eq.nation"
-        f"&order=annee_mois"
-    )
-    data = r.json()
-    data = lighten_response(data)
-    return web.json_response(text=json.dumps({"data": data}, default=str))
-
-
-@routes.get('/nation')
-async def get_all_nation(request):
-    return await get_med_5ans("nation")
-
-
-@routes.get('/departement')
-async def get_all_departement(request):
-    return await get_med_5ans("departement")
-
-
-@routes.get('/departement/{code}')
-async def get_departement(request):
-    code = request.match_info["code"]
-    return await process_geo("departement", code)
-
-
-@routes.get('/epci')
-async def get_all_epci(request):
-    return await get_med_5ans("epci")
-
-
-@routes.get('/epci/{code}')
-async def get_epci(request):
-    code = request.match_info["code"]
-    return await process_geo("epci", code)
-
-
-@routes.get('/commune/{code}')
-async def get_commune(request):
-    code = request.match_info["code"]
-    return await process_geo("commune", code)
-
-
-@routes.get('/mutations/{com}/{section}')
-async def get_mutations(request):
-    com = request.match_info["com"]
-    section = request.match_info["section"]
-    r = await requests.get(
-        f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{com}&section_prefixe=eq.{section}"
-    )
-    data = r.json()
-    return web.json_response(text=json.dumps({"data": data}, default=str))
-
-
-@routes.get('/dvf')
-async def get_mutations_table(request):
-    params = request.rel_url.query
-    offset = 0
-    query = None
-    if "page" in params:
-        offset = (int(params["page"]) - 1) * 20
-    if "dep" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?code_departement=eq.{params['dep']}&limit=20&offset={offset}"
-    if "com" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{params['com']}&limit=20&offset={offset}"
-    if "section" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=like.{params['section']}*&limit=20&offset={offset}"
-    if "parcelle" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}&limit=20&offset={offset}"
-    if query:
-        r = await requests.get(query)
-        data = r.json()
+    ) as res:
+        data = res.json()
+        data = lighten_response(data)
         return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -180,7 +97,92 @@ async def get_resource_data_streamed(
             yield b'\n'
 
 
-@routes.get(r"/dvf/csv/", name="csv")
+routes = web.RouteTableDef()
+
+
+@routes.get("/")
+async def get_health(request):
+    return web.HTTPOk()
+
+
+@routes.get('/nation/mois')
+async def get_nation(request):
+    async with request.app["csession"].get(
+        f"{PGREST_ENDPOINT}/stats_dvf?echelle_geo=eq.nation"
+        f"&order=annee_mois"
+    ) as res:
+        data = res.json()
+        data = lighten_response(data)
+        return web.json_response(text=json.dumps({"data": data}, default=str))
+
+
+@routes.get('/nation')
+async def get_all_nation(request):
+    return await get_med_5ans(request.app["csession"], "nation")
+
+
+@routes.get('/departement')
+async def get_all_departement(request):
+    return await get_med_5ans(request.app["csession"], "departement")
+
+
+@routes.get('/departement/{code}')
+async def get_departement(request):
+    code = request.match_info["code"]
+    return await process_geo(request.app["csession"], "departement", code)
+
+
+@routes.get('/epci')
+async def get_all_epci(request):
+    return await get_med_5ans(request.app["csession"], "epci")
+
+
+@routes.get('/epci/{code}')
+async def get_epci(request):
+    code = request.match_info["code"]
+    return await process_geo(request.app["csession"], "epci", code)
+
+
+@routes.get('/commune/{code}')
+async def get_commune(request):
+    code = request.match_info["code"]
+    return await process_geo(request.app["csession"], "commune", code)
+
+
+@routes.get('/mutations/{com}/{section}')
+async def get_mutations(request):
+    com = request.match_info["com"]
+    section = request.match_info["section"]
+
+    async with request.app["csession"].get(
+        f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{com}&section_prefixe=eq.{section}"
+    ) as res:
+        data = res.json()
+        return web.json_response(text=json.dumps({"data": data}, default=str))
+
+
+@routes.get('/dvf')
+async def get_mutations_table(request):
+    params = request.rel_url.query
+    offset = 0
+    query = None
+    if "page" in params:
+        offset = (int(params["page"]) - 1) * 20
+    if "dep" in params:
+        query = f"{PGREST_ENDPOINT}/dvf?code_departement=eq.{params['dep']}&limit=20&offset={offset}"
+    if "com" in params:
+        query = f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{params['com']}&limit=20&offset={offset}"
+    if "section" in params:
+        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=like.{params['section']}*&limit=20&offset={offset}"
+    if "parcelle" in params:
+        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}&limit=20&offset={offset}"
+    if query:
+        async with request.app["csession"].get(query) as res:
+            data = res.json()
+            return web.json_response(text=json.dumps({"data": data}, default=str))
+
+
+@routes.get("/dvf/csv/", name="csv")
 async def resource_data_csv(request):
     params = request.rel_url.query
     query = None
@@ -212,68 +214,63 @@ async def resource_data_csv(request):
 @routes.get('/section/{code}')
 async def get_section(request):
     code = request.match_info["code"]
-    return await process_geo("section", code)
+    return await process_geo(request.app["csession"], "section", code)
 
 
 @routes.get('/departement/{code}/communes')
 async def get_communes_from_dep(request):
     code = request.match_info["code"]
-    return await get_med_5ans("commune", code, True)
+    return await get_med_5ans(request.app["csession"], "commune", code, True)
 
 
 @routes.get('/epci/{code}/communes')
 async def get_commune_from_dep(request):
     code = request.match_info["code"]
-    return await get_med_5ans("commune", code)
+    return await get_med_5ans(request.app["csession"], "commune", code)
 
 
 @routes.get('/commune/{code}/sections')
 async def get_section_from_commune(request):
     code = request.match_info["code"]
-    return await get_med_5ans("section", code)
+    return await get_med_5ans(request.app["csession"], "section", code)
 
 
 @routes.get('/dpe-copro/{parcelle_id}')
 async def get_dpe_copro_from_parcelle_id(request):
     parcelle_id = request.match_info["parcelle_id"]
+    async with request.app["csession"].get(f"{PGREST_ENDPOINT}/dpe?parcelle_id=eq.{parcelle_id}") as res:     
+        dpe_data = res.json()
 
-    r = await requests.get(
-        f"{PGREST_ENDPOINT}/dpe?parcelle_id=eq.{parcelle_id}"
-    )
-    dpe_data = r.json()
+        async with request.app["csession"].get(
+            f"{PGREST_ENDPOINT}/copro?or=(reference_cadastrale_1.eq.{parcelle_id},"
+            f"reference_cadastrale_2.eq.{parcelle_id},reference_cadastrale_3.eq.{parcelle_id})"
+        ) as res2:
+            copro_data = res2.json()
 
-    r = await requests.get(
-        f"{PGREST_ENDPOINT}/copro?or=(reference_cadastrale_1.eq.{parcelle_id},"
-        f"reference_cadastrale_2.eq.{parcelle_id},reference_cadastrale_3.eq.{parcelle_id})"
-    )
-    copro_data = r.json()
-
-    return web.json_response(text=json.dumps({"data": {
-        "dpe": dpe_data,
-        "copro": copro_data,
-    }}, default=str))
+            return web.json_response(text=json.dumps({"data": {
+                "dpe": dpe_data,
+                "copro": copro_data,
+            }}, default=str))
 
 
 @routes.get('/distribution/{code}')
 async def get_repartition_from_code_geo(request):
     code = request.match_info["code"]
     if code:
-        r = await requests.get(
-            f"{PGREST_ENDPOINT}/distribution_prix?code_geo=eq.{code}"
-        )
-        data = r.json()
-        for d in data:
-            for key in d:
-                if (
-                    d[key] is not None and
-                    d[key].startswith('[') and
-                    isinstance(literal_eval(d[key]), list)
-                ):
-                    d[key] = literal_eval(d[key])
-        res = {'code_geo': data[0]['code_geo']}
-        for d in data:
-            res[d['type_local']] = {'xaxis': d['xaxis'], 'yaxis': d['yaxis']}
-        return web.json_response(text=json.dumps(res, default=str))
+        async with request.app["csession"].get(f"{PGREST_ENDPOINT}/distribution_prix?code_geo=eq.{code}") as res:    
+            data = res.json()
+            for d in data:
+                for key in d:
+                    if (
+                        d[key] is not None and
+                        d[key].startswith('[') and
+                        isinstance(literal_eval(d[key]), list)
+                    ):
+                        d[key] = literal_eval(d[key])
+            res2 = {'code_geo': data[0]['code_geo']}
+            for d in data:
+                res2[d['type_local']] = {'xaxis': d['xaxis'], 'yaxis': d['yaxis']}
+            return web.json_response(text=json.dumps(res2, default=str))
 
 
 @routes.get('/geo')
@@ -304,17 +301,13 @@ async def get_echelle(request):
     queries = [q for q in queries if q != '']
 
     if len(queries) == 0:
-        r = await requests.get(
-            f"{PGREST_ENDPOINT}/stats_dvf?limit=1"
-        )
-        data = r.json()
+        async with request.app["csession"].get(f"{PGREST_ENDPOINT}/stats_dvf?limit=1") as res: 
+            data = res.json()
+            return web.json_response(text=json.dumps({"data": data}, default=str))
     else:
-        r = await requests.get(
-            f"{PGREST_ENDPOINT}/stats_dvf?" + "&".join(queries)
-        )
-        data = r.json()
-
-    return web.json_response(text=json.dumps({"data": data}, default=str))
+        async with request.app["csession"].get(f"{PGREST_ENDPOINT}/stats_dvf?" + "&".join(queries)) as res: 
+            data = res.json()
+            return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
 async def app_factory():
