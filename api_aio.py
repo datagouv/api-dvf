@@ -49,7 +49,7 @@ def lighten_response(data):
             if("moy_" not in prop):
                 newItem[mapping_properties[prop]] = item[prop]
         arr.append(newItem)
-    return arr
+        return arr
 
 
 async def get_med_5ans(session, echelle_geo, code=None, case_dep_commune=False):
@@ -60,7 +60,7 @@ async def get_med_5ans(session, echelle_geo, code=None, case_dep_commune=False):
         url += f"&code_geo=like.{code}*"
 
     async with session.get(url) as res:
-        data = res.json()
+        data = await res.json()
         data = lighten_response(data)
         return web.json_response(text=json.dumps({"data": data}, default=str))
 
@@ -70,7 +70,7 @@ async def process_geo(session, echelle_geo, code):
         f"{PGREST_ENDPOINT}/stats_dvf?echelle_geo=eq.{echelle_geo}"
         f"&code_geo=eq.{code}&order=annee_mois"
     ) as res:
-        data = res.json()
+        data = await res.json()
         data = lighten_response(data)
         return web.json_response(text=json.dumps({"data": data}, default=str))
 
@@ -111,7 +111,7 @@ async def get_nation(request):
         f"{PGREST_ENDPOINT}/stats_dvf?echelle_geo=eq.nation"
         f"&order=annee_mois"
     ) as res:
-        data = res.json()
+        data = await res.json()
         data = lighten_response(data)
         return web.json_response(text=json.dumps({"data": data}, default=str))
 
@@ -157,7 +157,7 @@ async def get_mutations(request):
     async with request.app["csession"].get(
         f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{com}&section_prefixe=eq.{section}"
     ) as res:
-        data = res.json()
+        data = await res.json()
         return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -178,7 +178,7 @@ async def get_mutations_table(request):
         query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}&limit=20&offset={offset}"
     if query:
         async with request.app["csession"].get(query) as res:
-            data = res.json()
+            data = await res.json()
             return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
@@ -239,13 +239,13 @@ async def get_section_from_commune(request):
 async def get_dpe_copro_from_parcelle_id(request):
     parcelle_id = request.match_info["parcelle_id"]
     async with request.app["csession"].get(f"{PGREST_ENDPOINT}/dpe?parcelle_id=eq.{parcelle_id}") as res:     
-        dpe_data = res.json()
+        dpe_data = await res.json()
 
         async with request.app["csession"].get(
             f"{PGREST_ENDPOINT}/copro?or=(reference_cadastrale_1.eq.{parcelle_id},"
             f"reference_cadastrale_2.eq.{parcelle_id},reference_cadastrale_3.eq.{parcelle_id})"
         ) as res2:
-            copro_data = res2.json()
+            copro_data = await res2.json()
 
             return web.json_response(text=json.dumps({"data": {
                 "dpe": dpe_data,
@@ -258,7 +258,7 @@ async def get_repartition_from_code_geo(request):
     code = request.match_info["code"]
     if code:
         async with request.app["csession"].get(f"{PGREST_ENDPOINT}/distribution_prix?code_geo=eq.{code}") as res:    
-            data = res.json()
+            data = await res.json()
             for d in data:
                 for key in d:
                     if (
@@ -302,11 +302,11 @@ async def get_echelle(request):
 
     if len(queries) == 0:
         async with request.app["csession"].get(f"{PGREST_ENDPOINT}/stats_dvf?limit=1") as res: 
-            data = res.json()
+            data = await res.json()
             return web.json_response(text=json.dumps({"data": data}, default=str))
     else:
         async with request.app["csession"].get(f"{PGREST_ENDPOINT}/stats_dvf?" + "&".join(queries)) as res: 
-            data = res.json()
+            data = await res.json()
             return web.json_response(text=json.dumps({"data": data}, default=str))
 
 
