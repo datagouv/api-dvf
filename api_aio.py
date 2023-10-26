@@ -49,7 +49,7 @@ def lighten_response(data):
             if("moy_" not in prop):
                 newItem[mapping_properties[prop]] = item[prop]
         arr.append(newItem)
-        return arr
+    return arr
 
 
 async def get_med_5ans(session, echelle_geo, code=None, case_dep_commune=False):
