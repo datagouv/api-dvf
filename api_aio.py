@@ -1,7 +1,6 @@
 from aiohttp import web, ClientSession
 from markupsafe import escape
 import json
-import aiohttp_cors
 from ast import literal_eval
 from datetime import date
 import os
@@ -322,18 +321,6 @@ async def app_factory():
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)
 
-    cors = aiohttp_cors.setup(
-        app,
-        defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                    allow_credentials=True,
-                    expose_headers="*",
-                    allow_headers="*"
-                )
-        }
-    )
-    for route in list(app.router.routes()):
-        cors.add(route)
     return app
 
 
