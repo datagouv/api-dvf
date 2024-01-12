@@ -154,7 +154,7 @@ async def get_mutations(request):
     section = request.match_info["section"]
 
     async with request.app["csession"].get(
-        f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{com}&section_prefixe=eq.{section}"
+        f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{com}&section_prefixe=eq.{section}&order=date_mutation.desc"
     ) as res:
         data = await res.json()
         return web.json_response(text=json.dumps({"data": data}, default=str))
