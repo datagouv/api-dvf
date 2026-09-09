@@ -13,6 +13,7 @@ MARSEILLE_ARRONDISSEMENTS = (
     "13201,13202,13203,13204,13205,13206,13207,13208,13209,13210,"
     "13211,13212,13213,13214,13215,13216"
 )
+ORDER = "order=date_mutation.desc,id_mutation.asc"
 
 
 class FakePgrest:
@@ -84,14 +85,34 @@ async def test_mutations_table_of_a_plm_city_queries_its_arrondissements(
     await client.get("/dvf?com=75056&page=2")
 
     assert pgrest.received == [
-        f"/dvf?code_commune=in.({PARIS_ARRONDISSEMENTS})&limit=20&offset=20"
+        f"/dvf?code_commune=in.({PARIS_ARRONDISSEMENTS})&{ORDER}&limit=20&offset=20"
     ]
 
 
 async def test_mutations_table_of_an_ordinary_commune_is_left_alone(client, pgrest):
     await client.get("/dvf?com=44109")
 
-    assert pgrest.received == ["/dvf?code_commune=eq.44109&limit=20&offset=0"]
+    assert pgrest.received == [f"/dvf?code_commune=eq.44109&{ORDER}&limit=20&offset=0"]
+
+
+async def test_every_mutations_scope_is_ordered(client, pgrest):
+    await client.get("/dvf?dep=44")
+    await client.get("/dvf?section=44109000DX")
+    await client.get("/dvf?parcelle=44109000DX0416")
+
+    assert pgrest.received == [
+        f"/dvf?code_departement=eq.44&{ORDER}&limit=20&offset=0",
+        f"/dvf?id_parcelle=like.44109000DX*&{ORDER}&limit=20&offset=0",
+        f"/dvf?id_parcelle=eq.44109000DX0416&{ORDER}&limit=20&offset=0",
+    ]
+
+
+async def test_the_narrowest_scope_wins_when_several_are_given(client, pgrest):
+    await client.get("/dvf?dep=44&com=44109&parcelle=44109000DX0416")
+
+    assert pgrest.received == [
+        f"/dvf?id_parcelle=eq.44109000DX0416&{ORDER}&limit=20&offset=0"
+    ]
 
 
 async def test_csv_export_of_a_plm_city_queries_its_arrondissements(client, pgrest):
@@ -101,7 +122,7 @@ async def test_csv_export_of_a_plm_city_queries_its_arrondissements(client, pgre
     await response.read()
 
     assert pgrest.received == [
-        f"/dvf?code_commune=in.({MARSEILLE_ARRONDISSEMENTS})&limit=1&"
+        f"/dvf?code_commune=in.({MARSEILLE_ARRONDISSEMENTS})&{ORDER}&limit=1&"
     ]
 
 
@@ -109,7 +130,7 @@ async def test_csv_export_of_an_ordinary_commune_is_left_alone(client, pgrest):
     response = await client.get("/dvf/csv/?com=44109")
     await response.read()
 
-    assert pgrest.received == ["/dvf?code_commune=eq.44109&limit=1&"]
+    assert pgrest.received == [f"/dvf?code_commune=eq.44109&{ORDER}&limit=1&"]
 
 
 async def test_communes_of_a_departement_are_matched_on_their_own_code(client, pgrest):
