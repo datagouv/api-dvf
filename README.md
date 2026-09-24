@@ -7,3 +7,10 @@
 gunicorn api_aio:app_factory --bind 0.0.0.0:3030 --worker-class aiohttp.GunicornWebWorker --workers 4
 ```
 
+## Tests
+
+```
+pip install -r requirements-dev.txt
+pytest
+```
+
