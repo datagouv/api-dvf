@@ -17,6 +17,50 @@ start_date = str(start_year) + "-" + start_month
 threshold = 3
 
 
+# In the DGFiP source, mutations in Paris, Lyon and Marseille carry the code of their
+# municipal arrondissement, never the one of the city. The stats tables now hold a
+# `commune` scale row for those three cities, but `dvf.dvf` (loaded straight from the
+# source CSVs) and the `code_parent` of sections stay at the arrondissement scale.
+# Hence the translation at query time: duplicating rows in the database instead would
+# double-count sales in the exports and split sections in the section stats.
+PLM_ARRONDISSEMENTS = {
+    "75056": [f"751{num:02}" for num in range(1, 21)],  # Paris 1st to 20th
+    "69123": [f"6938{num}" for num in range(1, 10)],    # Lyon 1st to 9th
+    "13055": [f"132{num:02}" for num in range(1, 17)],  # Marseille 1st to 16th
+}
+
+
+def filter_on_commune(column: str, code: str) -> str:
+    """PostgREST filter on a column holding a commune code, widened to the municipal
+    arrondissements for Paris, Lyon and Marseille."""
+    arrondissements = PLM_ARRONDISSEMENTS.get(code)
+    if arrondissements:
+        return f"{column}=in.({','.join(arrondissements)})"
+    return f"{column}=eq.{code}"
+
+
+# /dvf and /dvf/csv/ paginate with OFFSET, which has no defined order of its own: two
+# consecutive pages could repeat or skip rows. This ordering does not fully fix that —
+# no set of exposed columns makes the sort total, only a stable key on dvf.dvf would —
+# but it groups the lots of a same sale and shows the most recent ones first.
+MUTATIONS_ORDER = "order=date_mutation.desc,id_mutation.asc"
+
+
+def mutations_filter(params) -> str:
+    """PostgREST filter for the geographic scope asked for, empty when there is none.
+    Several scopes at once are accepted, the last one wins."""
+    geo_filter = ""
+    if "dep" in params:
+        geo_filter = f"code_departement=eq.{params['dep']}"
+    if "com" in params:
+        geo_filter = filter_on_commune("code_commune", params["com"])
+    if "section" in params:
+        geo_filter = f"id_parcelle=like.{params['section']}*"
+    if "parcelle" in params:
+        geo_filter = f"id_parcelle=eq.{params['parcelle']}"
+    return geo_filter
+
+
 def lighten_response(data):
     mapping_properties = {
         "code_geo": "c",
@@ -51,12 +95,10 @@ def lighten_response(data):
     return arr
 
 
-async def get_med_5ans(session, echelle_geo, code=None, case_dep_commune=False):
+async def get_med_5ans(session, echelle_geo, geo_filter=None):
     url = f"{PGREST_ENDPOINT}/stats_whole_period?echelle_geo=eq.{echelle_geo}"
-    if code and not case_dep_commune:
-        url += f"&code_parent=eq.{code}"
-    if code and case_dep_commune:
-        url += f"&code_geo=like.{code}*"
+    if geo_filter:
+        url += f"&{geo_filter}"
 
     async with session.get(url) as res:
         data = await res.json()
@@ -169,17 +211,15 @@ async def get_mutations(request):
 async def get_mutations_table(request):
     params = request.rel_url.query
     offset = 0
-    query = None
     if "page" in params:
         offset = (int(params["page"]) - 1) * 20
-    if "dep" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?code_departement=eq.{params['dep']}&limit=20&offset={offset}"
-    if "com" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{params['com']}&limit=20&offset={offset}"
-    if "section" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=like.{params['section']}*&limit=20&offset={offset}"
-    if "parcelle" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}&limit=20&offset={offset}"
+    geo_filter = mutations_filter(params)
+    query = None
+    if geo_filter:
+        query = (
+            f"{PGREST_ENDPOINT}/dvf?{geo_filter}&{MUTATIONS_ORDER}"
+            f"&limit=20&offset={offset}"
+        )
     if query:
         async with request.app["csession"].get(query) as res:
             data = await res.json()
@@ -189,15 +229,10 @@ async def get_mutations_table(request):
 @routes.get("/dvf/csv/", name="csv")
 async def resource_data_csv(request):
     params = request.rel_url.query
+    geo_filter = mutations_filter(params)
     query = None
-    if "dep" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?code_departement=eq.{params['dep']}"
-    if "com" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?code_commune=eq.{params['com']}"
-    if "section" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=like.{params['section']}*"
-    if "parcelle" in params:
-        query = f"{PGREST_ENDPOINT}/dvf?id_parcelle=eq.{params['parcelle']}"
+    if geo_filter:
+        query = f"{PGREST_ENDPOINT}/dvf?{geo_filter}&{MUTATIONS_ORDER}"
     if query:
         response_headers = {
             "Content-Disposition": f'attachment; filename="dvf.csv"',
@@ -224,19 +259,25 @@ async def get_section(request):
 @routes.get('/departement/{code}/communes')
 async def get_communes_from_dep(request):
     code = request.match_info["code"]
-    return await get_med_5ans(request.app["csession"], "commune", code, True)
+    return await get_med_5ans(
+        request.app["csession"], "commune", f"code_geo=like.{code}*"
+    )
 
 
 @routes.get('/epci/{code}/communes')
 async def get_commune_from_dep(request):
     code = request.match_info["code"]
-    return await get_med_5ans(request.app["csession"], "commune", code)
+    return await get_med_5ans(
+        request.app["csession"], "commune", f"code_parent=eq.{code}"
+    )
 
 
 @routes.get('/commune/{code}/sections')
 async def get_section_from_commune(request):
     code = request.match_info["code"]
-    return await get_med_5ans(request.app["csession"], "section", code)
+    return await get_med_5ans(
+        request.app["csession"], "section", filter_on_commune("code_parent", code)
+    )
 
 
 @routes.get('/dpe-copro/{parcelle_id}')
