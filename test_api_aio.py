@@ -15,6 +15,7 @@ MARSEILLE_ARRONDISSEMENTS = (
 )
 ORDER = "order=date_mutation.desc,id_mutation.asc"
 
+LIMIT_1 = "limit=1&"
 
 class FakePgrest:
     """Stands in for PostgREST: answers empty and records the requests it received."""
@@ -101,9 +102,9 @@ async def test_every_mutations_scope_is_ordered(client, pgrest):
     await client.get("/dvf?parcelle=44109000DX0416")
 
     assert pgrest.received == [
-        f"/dvf?code_departement=eq.44&{ORDER}&limit=20&offset=0",
-        f"/dvf?id_parcelle=like.44109000DX*&{ORDER}&limit=20&offset=0",
-        f"/dvf?id_parcelle=eq.44109000DX0416&{ORDER}&limit=20&offset=0",
+        f"/dvf?code_departement=eq.44&order=date_mutation.desc,id_mutation.asc&limit=20&offset=0",
+        f"/dvf?section_prefixe=eq.000DX&code_commune=eq.44109&order=date_mutation.desc,id_mutation.asc&limit=20&offset=0",
+        f"/dvf?id_parcelle=eq.44109000DX0416&order=date_mutation.desc,id_mutation.asc&limit=20&offset=0",
     ]
 
 
@@ -111,7 +112,7 @@ async def test_the_narrowest_scope_wins_when_several_are_given(client, pgrest):
     await client.get("/dvf?dep=44&com=44109&parcelle=44109000DX0416")
 
     assert pgrest.received == [
-        f"/dvf?id_parcelle=eq.44109000DX0416&{ORDER}&limit=20&offset=0"
+        f"/dvf?code_departement=eq.44&code_commune=eq.44109&id_parcelle=eq.44109000DX0416&{ORDER}&limit=20&offset=0"
     ]
 
 
@@ -122,7 +123,7 @@ async def test_csv_export_of_a_plm_city_queries_its_arrondissements(client, pgre
     await response.read()
 
     assert pgrest.received == [
-        f"/dvf?code_commune=in.({MARSEILLE_ARRONDISSEMENTS})&{ORDER}&limit=1&"
+        f"/dvf?code_commune=in.({MARSEILLE_ARRONDISSEMENTS})&{ORDER}&{LIMIT_1}"
     ]
 
 
@@ -130,7 +131,7 @@ async def test_csv_export_of_an_ordinary_commune_is_left_alone(client, pgrest):
     response = await client.get("/dvf/csv/?com=44109")
     await response.read()
 
-    assert pgrest.received == [f"/dvf?code_commune=eq.44109&{ORDER}&limit=1&"]
+    assert pgrest.received == [f"/dvf?code_commune=eq.44109&{ORDER}&{LIMIT_1}"]
 
 
 async def test_communes_of_a_departement_are_matched_on_their_own_code(client, pgrest):
@@ -146,4 +147,30 @@ async def test_communes_of_an_epci_are_matched_on_their_parent(client, pgrest):
 
     assert pgrest.received == [
         "/stats_whole_period?echelle_geo=eq.commune&code_parent=eq.200046977"
+    ]
+
+# Calls to CSV endpoint return stream. In this case the query contains an additional limit=1& in query params
+# (see function `get_resource_data_streamed`) so we need to pass it in received response
+async def test_date_min_max_csv_export(client, pgrest):
+    response = await client.get("/dvf/csv/?com=44109&section=000MS&date_min=2025-06-19&date_max=2025-12-01&page=1&offset=1")
+    await response.read()
+
+    assert pgrest.received == [
+        f"/dvf?section_prefixe=eq.000MS&code_commune=eq.44109&date_mutation=gte.2025-06-19&date_mutation=lte.2025-12-01&{ORDER}&{LIMIT_1}",
+    ]
+
+async def test_date_min_only_csv_export(client, pgrest):
+    response = await client.get("/dvf/csv/?com=44109&section=000MS&date_min=2025-06-19")
+    await response.read()
+
+    assert pgrest.received == [
+        f"/dvf?section_prefixe=eq.000MS&code_commune=eq.44109&date_mutation=gte.2025-06-19&{ORDER}&{LIMIT_1}",
+    ]
+
+async def test_date_max_only_csv_export(client, pgrest):
+    response = await client.get("/dvf/csv/?com=44109&section=000MS&date_max=2025-09-19")
+    await response.read()
+
+    assert pgrest.received == [
+        f"/dvf?section_prefixe=eq.000MS&code_commune=eq.44109&date_mutation=lte.2025-09-19&{ORDER}&{LIMIT_1}",
     ]
