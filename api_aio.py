@@ -1,4 +1,5 @@
 from aiohttp import web, ClientSession
+from multidict import MultiDict, MultiDictProxy
 from markupsafe import escape
 import json
 from ast import literal_eval
@@ -48,17 +49,29 @@ MUTATIONS_ORDER = "order=date_mutation.desc,id_mutation.asc"
 
 def mutations_filter(params) -> str:
     """PostgREST filter for the geographic scope asked for, empty when there is none.
-    Several scopes at once are accepted, the last one wins."""
-    geo_filter = ""
+    Several scopes at once are accepted, they cumulate."""
+    geo_filter = []
     if "dep" in params:
-        geo_filter = f"code_departement=eq.{params['dep']}"
-    if "com" in params:
-        geo_filter = filter_on_commune("code_commune", params["com"])
+        geo_filter.append(f"code_departement=eq.{params['dep']}")
     if "section" in params:
-        geo_filter = f"id_parcelle=like.{params['section']}*"
+        section = params['section']
+        if len(section) == 10:
+            commune = section[:5]
+            section = section[5:]
+            if "com" not in params:
+                mutable_params = MultiDict(params)
+                mutable_params["com"] = commune
+                params = MultiDictProxy(mutable_params)
+        geo_filter.append(f"section_prefixe=eq.{section}")
+    if "com" in params:
+        geo_filter.append(filter_on_commune("code_commune", params["com"]))
     if "parcelle" in params:
-        geo_filter = f"id_parcelle=eq.{params['parcelle']}"
-    return geo_filter
+        geo_filter.append(f"id_parcelle=eq.{params['parcelle']}")
+    if "date_min" in params:
+        geo_filter.append(f"date_mutation=gte.{params['date_min']}")
+    if "date_max" in params:
+        geo_filter.append(f"date_mutation=lte.{params['date_max']}")
+    return '&'.join(geo_filter)
 
 
 def lighten_response(data):

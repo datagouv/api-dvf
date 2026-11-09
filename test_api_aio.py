@@ -101,9 +101,9 @@ async def test_every_mutations_scope_is_ordered(client, pgrest):
     await client.get("/dvf?parcelle=44109000DX0416")
 
     assert pgrest.received == [
-        f"/dvf?code_departement=eq.44&{ORDER}&limit=20&offset=0",
-        f"/dvf?id_parcelle=like.44109000DX*&{ORDER}&limit=20&offset=0",
-        f"/dvf?id_parcelle=eq.44109000DX0416&{ORDER}&limit=20&offset=0",
+        f"/dvf?code_departement=eq.44&order=date_mutation.desc,id_mutation.asc&limit=20&offset=0",
+        f"/dvf?section_prefixe=eq.000DX&code_commune=eq.44109&order=date_mutation.desc,id_mutation.asc&limit=20&offset=0",
+        f"/dvf?id_parcelle=eq.44109000DX0416&order=date_mutation.desc,id_mutation.asc&limit=20&offset=0",
     ]
 
 
@@ -111,7 +111,7 @@ async def test_the_narrowest_scope_wins_when_several_are_given(client, pgrest):
     await client.get("/dvf?dep=44&com=44109&parcelle=44109000DX0416")
 
     assert pgrest.received == [
-        f"/dvf?id_parcelle=eq.44109000DX0416&{ORDER}&limit=20&offset=0"
+        f"/dvf?code_departement=eq.44&code_commune=eq.44109&id_parcelle=eq.44109000DX0416&{ORDER}&limit=20&offset=0"
     ]
 
 
